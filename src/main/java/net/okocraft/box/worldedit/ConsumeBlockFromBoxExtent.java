@@ -82,6 +82,8 @@ public class ConsumeBlockFromBoxExtent extends AbstractDelegateExtent {
                 return super.setBlock(position, block);
             }
 
+            WorldEditEventListener.putCooldown(player, System.currentTimeMillis());
+
             if (!block.getBlockType().getMaterial().isAir()) {
                 Material material = Material.matchMaterial(block.getBlockType().getId());
                 if (!Categories.getInstance().getAllItems().contains(material.name())) {
@@ -91,11 +93,7 @@ public class ConsumeBlockFromBoxExtent extends AbstractDelegateExtent {
                 if (PlayerData.getItemAmount(player, item) > 0) {
                     PlayerData.addItemAmount(player, item, -1);
                 } else {
-                    if (!missingBlocks.containsKey(block.getBlockType())) {
-                        missingBlocks.put(block.getBlockType(), 1);
-                    } else {
-                        missingBlocks.put(block.getBlockType(), missingBlocks.get(block.getBlockType()) + 1);
-                    }
+                    missingBlocks.put(block.getBlockType(), missingBlocks.getOrDefault(block.getBlockType(), 0) + 1);
                     return false;
                 }
             }
@@ -109,6 +107,7 @@ public class ConsumeBlockFromBoxExtent extends AbstractDelegateExtent {
                 ItemStack item = new ItemStack(material);
                 PlayerData.addItemAmount(player, item, 1);
             }*/
+
         }
 
         return super.setBlock(position, block);

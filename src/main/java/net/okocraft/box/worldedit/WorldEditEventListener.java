@@ -1,5 +1,6 @@
 package net.okocraft.box.worldedit;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import com.sk89q.worldedit.WorldEdit;
@@ -19,6 +20,7 @@ public class WorldEditEventListener {
 
     private static final WorldEdit worldEdit = WorldEdit.getInstance();
     private static WorldEditEventListener listener;
+    private static Map<Player, Long> cooldowns = new HashMap<>();
 
     private WorldEditEventListener() {
     }
@@ -29,12 +31,20 @@ public class WorldEditEventListener {
         }
         worldEdit.getEventBus().register(listener);
     }
-    
+
     public static void unregister() {
         if (listener != null) {
             worldEdit.getEventBus().unregister(listener);
             listener = null;
         }
+    }
+
+    static void putCooldown(Player player, long cooldown) {
+        cooldowns.put(player, cooldown);
+    }
+
+    static long getCooldown(Player player) {
+        return cooldowns.getOrDefault(player, System.currentTimeMillis());
     }
 
     @Subscribe
@@ -48,19 +58,41 @@ public class WorldEditEventListener {
         }
         Extent extent = event.getExtent();
         ConsumeBlockFromBoxExtent consume;
-        extent = new PreventReplacingDisallowExtent(extent, player);    
+        extent = new PreventReplacingDisallowExtent(extent, player);
         extent = consume = new ConsumeBlockFromBoxExtent(extent, player);
         event.setExtent(extent);
-        new BukkitRunnable(){
-            @Override
-            public void run() {
-                Map<BlockType, Integer> missing = consume.popMissing();
-                if (missing.isEmpty()) {
-                    return;
+        if (false) {
+        //if (!cooldowns.containsKey(player)) {
+            new BukkitRunnable() {
+
+                private long startTime = System.currentTimeMillis();
+
+                @Override
+                public void run() {
+                    player.sendMessage("run");
+                    player.sendMessage("starttime: " + startTime);
+                    player.sendMessage("cooldown: " + cooldowns.getOrDefault(player, startTime));
+                    player.sendMessage("cooldown + 3000: " + (cooldowns.getOrDefault(player, startTime) + 3000L));
+                    player.sendMessage("currentTime: " + System.currentTimeMillis());
+                    
+                    player.sendMessage("match: " + (cooldowns.getOrDefault(player, startTime) + 3000L <= System.currentTimeMillis()));
+                    if (cooldowns.getOrDefault(player, startTime) + 3000L <= System.currentTimeMillis()) {
+                        Map<BlockType, Integer> missing = consume.popMissing();
+                        if (!missing.isEmpty()) {
+                            player.sendMessage("§8[§6Box§8] §7不足したブロック:");
+                            missing.forEach(
+                                    (type, amount) -> player.sendMessage("  §b" + type.getName() + "§7: §b" + amount));
+                        }
+                        player.sendMessage("cancel");
+                        cancel();
+                        cooldowns.remove(player);
+                    } else if (startTime + 10000 < System.currentTimeMillis()) {
+                        player.sendMessage("cancel timelimit");
+                        cancel();
+
+                    }
                 }
-                player.sendMessage("§8[§6Box§8] §7不足したブロック:");
-                missing.forEach((type, amount) -> player.sendMessage("  §b" + type.getName() + "§7: §b" + amount));
-            }
-        }.runTaskLater(Box.getInstance(), 3L);
+            }.runTaskTimer(Box.getInstance(), 60L, 60L);
+        }
     }
 }
